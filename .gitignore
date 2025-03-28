@@ -1,0 +1,6 @@
+*.o
+gen_answer
+answer/
+chacha20_baremetal*
+chacha20_linux*
+xs-emu
