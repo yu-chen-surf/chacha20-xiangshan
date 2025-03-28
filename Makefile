@@ -47,9 +47,9 @@ answer/$(BENCH_LEN).txt: src/host/gen_answer answer
 
 xs-emu:
 	if [ `nproc` -lt 8 ]; then \
-		wget https://wool.net.cyyself.name/xs-emu-1t-1f23fd0f52 -O $@; \
+		wget https://github.com/cyyself/chacha20-xiangshan/releases/download/beta/xs-emu-1t-1f23fd0f52.xz -O - | xz -d > $@; \
 	else \
-		wget https://wool.net.cyyself.name/xs-emu-8t-1f23fd0f52 -O $@; \
+		wget https://github.com/cyyself/chacha20-xiangshan/releases/download/beta/xs-emu-8t-1f23fd0f52.xz -O - | xz -d > $@; \
 	fi
 	chmod +x $@
 
