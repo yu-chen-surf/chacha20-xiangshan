@@ -43,10 +43,10 @@ sudo apt install make wget gcc gcc-riscv64-linux-gnu qemu-user
 
 目标命令：
 
-- `validate`: 验证优化后的算法在 QEMU 上是否正确
-- `run`: 在 香山模拟器上运行优化后的算法，查看性能指标
-- `validate-rtl`: 验证优化后的算法在香山模拟器上是否正确
-- `clean`: 清理编译产物
+- `make validate`: 验证优化后的算法在 QEMU 上是否正确
+- `make run`: 在 香山模拟器上运行优化后的算法，查看性能指标
+- `make validate-rtl`: 验证优化后的算法在香山模拟器上是否正确
+- `make clean`: 清理编译产物
 
 ### 性能验证
 
@@ -108,7 +108,55 @@ Host time spent: 16,376ms
 - 设计上无法支持所有的 state 输入
 - 直接输出固定的结果
 
+## 赛题解析
+
+### Chacha20 算法与 RISC-V 指令集
+
+我们首先观察最简单的 C 语言实现的 Chacha20 算法：
+
+```c
+# define ROTATE(v, n) (((v) << (n)) | ((v) >> (32 - (n))))
+
+/* QUARTERROUND updates a, b, c, d with a ChaCha "quarter" round. */
+# define QUARTERROUND(a,b,c,d) ( \
+x[a] += x[b], x[d] = ROTATE((x[d] ^ x[a]),16), \
+x[c] += x[d], x[b] = ROTATE((x[b] ^ x[c]),12), \
+x[a] += x[b], x[d] = ROTATE((x[d] ^ x[a]), 8), \
+x[c] += x[d], x[b] = ROTATE((x[b] ^ x[c]), 7)  )
+
+/* chacha_core performs 20 rounds of ChaCha on the input words in
+ * |input| and writes the 64 output bytes to |output|. */
+void chacha20(chacha_buf *output, const u32 input[16])
+{
+    u32 x[16];
+    int i;
+
+    for (int i = 0; i < 16; i++) {
+        x[i] = input[i];
+    }
+
+    for (i = 20; i > 0; i -= 2) {
+        QUARTERROUND(0, 4, 8, 12);
+        QUARTERROUND(1, 5, 9, 13);
+        QUARTERROUND(2, 6, 10, 14);
+        QUARTERROUND(3, 7, 11, 15);
+        QUARTERROUND(0, 5, 10, 15);
+        QUARTERROUND(1, 6, 11, 12);
+        QUARTERROUND(2, 7, 8, 13);
+        QUARTERROUND(3, 4, 9, 14);
+    }
+
+    for (i = 0; i < 16; ++i)
+        output->u[i] = x[i] + input[i];
+}
+```
+
+我们可以发现， ChaCha20 的核心计算操作是 `ROTATE` ，即循环左移操作。该操作在 RV64GC 指令集上通常使用 `slli`, `srli`, `or` 三条指令实现。但在 RISC-V 的 Zbb 扩展中，提供了 `rol` 指令，可以直接实现循环左移操作。我们可以使用该指令来优化 ChaCha20 算法的性能。更进一步地， RISC-V Vector 以及 Zvbb 扩展也有指令提供了类似的功能，这一步留给选手根据相关的指令集手册和文档进行进一步的优化。
+
+我们建议选手在实现了指令集扩展后，通过香山模拟器提供的性能计数器信息（该信息会输出到 xs-emu 的 stderr 输出中，可通过修改 Makefile 中的 `./xs-emu 2> /dev/null` 到 `./xs-emu 2> xs.log`）来分析性能瓶颈，进一步优化指令的排布、寄存器的分配、 Vector lmul 等参数的设置，来进一步提升性能。
+
 ## 推荐阅读
 
 1. [OpenSSL 中的 ChaCha20 加密算法的 RISC-V Zvbb 汇编实现](https://github.com/openssl/openssl/blob/openssl-3.5.0-beta1/crypto/chacha/asm/chacha-riscv64-v-zbb.pl)
 
+2. [OpenSSL 中使用 Zbb 扩展优化 Chacha20 算法 的实现](https://github.com/openssl/openssl/commit/ca6286c382a7eb527fac9aba2a018354acb27b16)
