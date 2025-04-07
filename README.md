@@ -28,7 +28,7 @@ void chacha20(chacha_buf *output, const u32 input[16]);
 针对 x86-64 的 Debian / Ubuntu 系统，您可以使用以下命令安装必要的依赖：
 
 ```bash
-sudo apt install make wget gcc gcc-riscv64-linux-gnu qemu-user
+sudo apt install make wget gcc gcc-riscv64-linux-gnu qemu-user python3-venv
 ```
 
 香山 emu 我们已经基于 [commit 1f23fd0f52e1d022ef0a6c2a206d3733263bac23](https://github.com/OpenXiangShan/XiangShan/tree/1f23fd0f52e1d022ef0a6c2a206d3733263bac23) 预编译为静态链接的 x86-64 Linux 的二进制文件，在 Makefile 中已经配置好了可以从网络下载的 url 。
@@ -154,6 +154,33 @@ void chacha20(chacha_buf *output, const u32 input[16])
 我们可以发现， ChaCha20 的核心计算操作是 `ROTATE` ，即循环左移操作。该操作在 RV64GC 指令集上通常使用 `slli`, `srli`, `or` 三条指令实现。但在 RISC-V 的 Zbb 扩展中，提供了 `rol` 指令，可以直接实现循环左移操作。我们可以使用该指令来优化 ChaCha20 算法的性能。更进一步地， RISC-V Vector 以及 Zvbb 扩展也有指令提供了类似的功能，这一步留给选手根据相关的指令集手册和文档进行进一步的优化。
 
 我们建议选手在实现了指令集扩展后，通过香山模拟器提供的性能计数器信息（该信息会输出到 xs-emu 的 stderr 输出中，可通过修改 Makefile 中的 `./xs-emu 2> /dev/null` 到 `./xs-emu 2> xs.log`）来分析性能瓶颈，进一步优化指令的排布、寄存器的分配、 Vector lmul 等参数的设置，来进一步提升性能。
+
+## 香山单步调试
+
+香山处理器是乱序多发射处理器，一个 cycle 可以同时执行多条指令，如果需要了解执行细节，可通过以下方式进行交互式调试：
+
+```bash
+make xspdb-depends  # 下载 python 版香山（ commit 号同 emu ）、下载 spike-dasm 、安装 python 依赖
+make debug    # 开始 debug
+```
+
+如果一切正常，可以看见类似以下输出：
+```
+> chacha20-xiangshan/test.py(26)test_sim_top()
+-> while True:
+(XiangShan)
+```
+
+键入 `xui` 命令回车进入交互界面进行调试。常用调试命令如下：
+
+1. `xstep <n>` 执行 n 个时钟周期，例如 `xstep 10000`
+1. `xistep [n]` 执行到下 1 次或者 n 次指令提交
+1. `xreset` 重置电路
+1. `xload` 加载指定 bin 文件
+1. `xwatch SimTop_top.SimTop.timer` 观察当前 cycle 数
+
+其他命令可通过 `help` 命令查看，部分命令支持 tab 补齐，例如 xload 。XSPdb 参考链接：[https://github.com/OpenXiangShan/XSPdb](https://github.com/OpenXiangShan/XSPdb)。用户可参考[Pdb 手册](https://docs.python.org/3/library/pdb.html)，在 `XSPython/XSPdb/xspdb.py` 中添加自定义命令。
+
 
 ## 推荐阅读
 

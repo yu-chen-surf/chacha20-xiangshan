@@ -66,3 +66,14 @@ validate-rtl: xs-emu chacha20_baremetal-$(BENCH_LEN).bin answer/$(BENCH_LEN).txt
 
 run: xs-emu chacha20_baremetal-$(BENCH_LEN).bin
 	./xs-emu -i ./chacha20_baremetal-$(BENCH_LEN).bin --no-diff 2>/dev/null
+
+XSPython:
+	wget https://github.com/OpenXiangShan/XSPdb/releases/download/v0.1.0-test/XSPython-1f23fd0f5.tar.gz -O - | tar -zxvf -
+
+xspdb-depends: XSPython
+	python3 -m venv xspdb && . xspdb/bin/activate && pip3 install urwid capstone
+
+debug: xspdb-depends chacha20_baremetal-$(BENCH_LEN).bin
+	@echo "type command xui to enter XSPython interactive mode"
+	@echo "type help for help"
+	. xspdb/bin/activate && python3 xspdb.py chacha20_baremetal-$(BENCH_LEN).bin
